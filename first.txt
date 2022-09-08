@@ -1,0 +1,98 @@
+Language cpp
+
+Все методы проверялись через программу SourceMonitor.
+
+
+Как проблемы у данного кода:
+1) Отсутствие DRY
+2) Нарушение SRP
+3) Наличие if-else
+4) Наличие for
+5) Неиспользуемые переменные
+
+Complexety 8
+void Json::convert(std::string& value)
+{
+    size_t end = value.size();
+    size_t start = 0;
+    size_t next = 0;
+    std::string line;
+    
+    std::set<std::string> lines{};
+    std::stringstream ss(value);
+    while (std::getline(ss, line, ',')) {
+        std::string s2(line);
+        line.erase(remove(line.begin(), line.end(), '\"'), line.end());
+        line.erase(remove(line.begin(), line.end(), '{'), line.end());
+        line.erase(remove(line.begin(), line.end(), '}'), line.end());
+        line.erase(remove(line.begin(), line.end(), ' '), line.end());
+
+        else if (start == std::string::npos){
+            if(line != "")
+                lines.insert(line);
+        }
+    }
+
+    std::vector<std::string> keyWithoutNestedValue{};
+    std::vector<std::string> keysWithValue{};
+    for (auto& val : lines)
+    {
+        std::string str = val;
+        std::string delim{ ":" };
+
+        std::string key = str.substr(0, str.find(delim));
+        key.erase(remove(key.begin(), key.end(), '\"'), key.end());
+
+        std::string val = str.substr(str.find(delim) + 1);
+        val.erase(remove(val.begin(), val.end(), '\"'), val.end());
+
+        std::pair<std::string, std::string> par(key, val);
+
+       /* auto it = json_doc->find("_id");
+        json_doc->erase(it, json_doc->end());*/
+        json_doc->insert(par);
+    }
+    if (!with_id)
+    {
+        auto it = json_doc->find("_id");
+        json_doc->erase(it, json_doc->end());
+    }
+    else {
+        auto it = json_doc->find("_id");
+        std::string val = it->second;
+        json_doc->erase(it);
+        std::pair<std::string, std::string> par(to_replace, val);
+
+        json_doc->insert(par);
+    }
+    setSchema();
+}
+
+
+//complexety 2
+//statements 7
+Что было сделано для снижения ЦС:
+
+1) Все манипуляции со строками вынесены в отдельный класс StringFormater(Ясный код, обернул примитивный тип в класс)
+Код упрощенного класса StringFormater: 
+2) json_doc до рефактора был обычным полем map<string, string> в классе Json. Также обернул данный тип в класс (Ясный код).
+3) Избавился от if-else с помощью тернарного оператора. (ЦС, избавление от else).
+4) Избавился от for statemnt, использвал стандартную библиотеку (ЦС, избавление от for)/
+
+void Json::convert(std::string& value)
+{
+    std::set<std::string> lines = formater->formatString(value);
+
+    std::for_each(lines.begin(), lines.end(), [&](std::string& line)->void
+        {
+            auto pair = formater->splitString(line, ":");
+            json_doc->insert(pair);
+        });
+
+    with_id ? json_doc->eraseId("_id") : json_doc->eraseId("_id", to_replace);
+
+    setSchema();
+}
+
+
+-------------------------------------

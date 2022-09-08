@@ -1,7 +1,7 @@
 Language cpp
 
 Все методы проверялись через программу SourceMonitor.
-
+Во время снижения ЦС, старался не писать решения с нуля, а исправлять уже имеющийся код, ориентируясь на имеющиеся тесты.
 -------------------------FIRST EXAMPLE-------------------------
 Language cpp
 
@@ -83,9 +83,15 @@ void Json::convert(std::string& value)
 4) Избавился от for statemnt, использвал стандартную библиотеку (ЦС, избавление от for)/
 5) Сложность снизилась с 8 до 2
 
+
+Какие минусы имеются:
+1) Наличие вложенного if в StringFormater::formatString
+2) Наличие литералов вместо констант
+
+-------------Code
 void Json::convert(std::string& value)
 {
-    std::set<std::string> lines = formater->formatString(value);
+    std::set<std::string> lines = formater->formatString(value); //class  StringFormater
 
     std::for_each(lines.begin(), lines.end(), [&](std::string& line)->void
         {
@@ -96,6 +102,33 @@ void Json::convert(std::string& value)
     with_id ? json_doc->eraseId("_id") : json_doc->eraseId("_id", to_replace);
 
     setSchema();
+}
+
+//Класс Format
+std::set<std::string>& StringFormater::formatString(std::string& json)
+{
+    std::set<std::string> lines;
+    std::stringstream ss(json);
+    std::string line;
+    while (std::getline(ss, line, ',')) {
+        std::string s2(line);
+        eraseElems(line);
+        size_t start = s2.find("[");
+        if (start == std::string::npos) {
+            if (line != "")
+                lines.insert(line);
+        }
+    }
+
+    return lines;
+}
+
+std::pair<std::string, std::string> splitString(std::string& to_split, const std::string& delim)
+{
+    std::string key = to_split.substr(0, to_split.find(delim));
+    std::string value = to_split.substr(to_split.find(delim) + 1);
+    std::pair<std::string, std::string> par(key, value);
+    return par;
 }
 
 
@@ -113,6 +146,7 @@ Language cpp
 6) Передаются мутабельные значения query, collection в параметрах метода
 7) ЦС метода find равно 7
 
+Данный метод реализует добавление елемента в отсортированных список. 
 -------------Code
 void MongoWrapper::find(MongoSelectQuery& query, std::string& collection)
 {
@@ -176,7 +210,7 @@ void MongoWrapper::find(MongoSelectQuery& query, std::string& collection)
 4) Сделал аргументы функции константными (Ясный код, СИ)
 5) ЦС понизилась с 7 до 1 метода find 
 
-Какие минусы остались и не успел добавить в решение:
+Какие минусы остались в решение:
 1) слово auto. MongoCxx обильна namespace'ами и ухудшается чтение кода из-за подобного "bsoncxx::builder::basic::kvp" и так далее.
 Можно использовать вместо auto using или typedef, но видел, как с++ программисты и auto использовали, и using. Не буду говорить, что auto -- лучший варинт.
 
@@ -189,6 +223,7 @@ void MongoWrapper::find(MongoSelectQuery& query, std::string& collection)
 с параметром-лямбдой-функцией.
 
 -------------Code
+
 void MongoWrapper::find(const MongoSelectQuery& query, const std::string& collection)
 {
 	auto coll = MongoWrapper::db[collection];
@@ -273,7 +308,7 @@ Language: Java
 5) ЦС равно 13
 6) Несколько return
 
-p.s Данный метод реализует добавление елемента в отсортированных список. 
+Данный метод реализует добавление елемента в отсортированных список. 
 -------------Code
 
 public void add(T value) {
@@ -330,7 +365,23 @@ public void add(T value) {
 -------------AFTER REFACTOR:
 
 
-Тут приложена укороченная версия. Полная версия лежит тут:
+Тут приложена укороченная версия. Полная версия лежит тут: https://github.com/eduAlexandrPirogov/clearing_refactoring_code/blob/main/OrderedListAddMethodRefactor.java
+
+Что было сделано:
+
+1) Убраны проверки на null (СИ ЦС)
+2) Уменьшил количество вложенных if-else (узнал, что в Java тернарный оператор должен быть присвоен) (СИ ЦС)
+3) Декомпозировал функцию add на мелкие
+4) Добавил класс NodesOrder. Потенциально позволяет добавлять в список разлиные виды сортировок (например, сортировка по количеству символов в строке)
+5) Cнизил сложность с 13 до 5
+
+Какие минусы остались:
+1) Наличие null в нодах
+2) Наличие if-else вложенных. Проблема решалась намного проще, если бы тернарный оператор работал как в С++, но имеем, что имеем. 
+3) Не лучшая реализация DummyNode. Можно сделать проще, нарушаю KISS, DRY. 
+4) Также можно подумать об реализации HeadNode, TailNode, и добавить методы удаления/добавления в эти классы. Соответственно,
+они будут полиморфно вызывать свои методы, что избавит нас от if-else. 
+
 -------------Code
 
 //Создаем классы Node, ValuableNode, EmptyNode, дабы убрать проверку null
@@ -338,7 +389,6 @@ class Node<T> {
 
 	public Node<T> next, prev;
 	public T value;
-	protected String nodeStatus;
 
 	public Node() {
 		value = null;
@@ -352,9 +402,6 @@ class Node<T> {
 		prev = null;
 	}
 
-	public String getStatus() {
-		return nodeStatus;
-	}
 }
 
 class ValueableNode<T> extends Node<T> {
@@ -438,24 +485,27 @@ class DescNodesOrder<T extends Comparable<T>> extends NodesOrder<T> {
 		tail = new EmptyNode<T>();
 	}
 
+	
 	public void add(T value) {
 		ValueableNode<T> nodeToAdd = new ValueableNode<T>(value);
 		count++;
 		// Ternary operator would be usefull here
+		//Попытка избавиться от else.
 		if (this.head instanceof EmptyNode) {
 			addFirstHead(nodeToAdd);
 			return;
 		}
 		addAfterHead(nodeToAdd);
-
 	}
+	
 
 	private void addFirstHead(ValueableNode<T> nodeToAdd) {
 		addInTail(nodeToAdd);
 		max = this.head.value;
 		min = this.head.value;
 	}
-
+	
+	//Наличие else и вложенных if-else
 	private void addAfterHead(ValueableNode<T> nodeToAdd) {
 		Node<T> current = this.head;
 		
@@ -476,7 +526,7 @@ class DescNodesOrder<T extends Comparable<T>> extends NodesOrder<T> {
 		max = this.tail.value;
 	}
 	
-
+	//Убрал цикл while и проверку на null
 	private Node<T> recDescSearch(T value, Node<T> current, Node<T> nodeToAdd) {
 		if (current.next instanceof EmptyNode
 				|| (compare(nodeToAdd.value, current.value) > 0 && compare(nodeToAdd.value, current.next.value) < 0)
@@ -489,24 +539,11 @@ class DescNodesOrder<T extends Comparable<T>> extends NodesOrder<T> {
 
 	@Override
 	public void addInHead(ValueableNode<T> _item) {
-		this.head.prev = _item;
-		_item.next = head;
-		this.head = _item;
-		max = this.head.value;
+		/..../
 	}
 
 	public void addInTail(ValueableNode<T> _item) {
-		if (head instanceof EmptyNode) {
-			this.head = _item;
-			this.head.next = null;
-			this.head.prev = null;
-
-		} else {
-			this.tail.next = _item;
-			_item.prev = tail;
-		}
-		this.tail = _item;
-		min = this.tail.value;
+		/..../
 	}
 
 	public Node<T> find(T val) {
@@ -572,6 +609,7 @@ public class OrderedList<T extends Comparable<T>> implements Comparator<T> {
 
 	// complex 13
 	public void add(T value) {
+		//Subtype polymorhysm
 		order.add(value);
 	}
 
@@ -581,3 +619,4 @@ public class OrderedList<T extends Comparable<T>> implements Comparator<T> {
 
 	/..../
 }
+

@@ -72,7 +72,6 @@ void Json::convert(std::string& value)
     setSchema();
 }
 
-
 -------------AFTER REFACTOR
 Что было сделано:
 
@@ -142,7 +141,11 @@ void eraseElems(std::string& line)
      	 line.erase(remove(line.begin(), line.end(), symbol), line.end());
      });
  }
-
+ 
+ 
+ 
+ 
+ 
 -------------------------SECOND EXAMPLE-------------------------
 Language cpp
 
@@ -305,6 +308,12 @@ document MongoWrapper::createProjectionDocument(MongoSelectQuery& query)
 		});
 	return projection;
 }
+
+
+
+
+
+
 
 
 -------------------------THIRD EXAMPLE-------------------------

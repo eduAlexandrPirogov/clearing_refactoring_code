@@ -86,7 +86,7 @@ void Json::convert(std::string& value)
 
 Какие минусы имеются:
 1) Наличие вложенного if в StringFormater::formatString
-2) Наличие литералов вместо констант
+2) Наличие литералов вместо констант по типу ":" и "_id";
 
 -------------Code
 void Json::convert(std::string& value)
@@ -104,7 +104,9 @@ void Json::convert(std::string& value)
     setSchema();
 }
 
-//Класс Format
+#Класс StringFormatter
+
+//Наличие вложенного if
 std::set<std::string>& StringFormater::formatString(std::string& json)
 {
     std::set<std::string> lines;
@@ -123,6 +125,7 @@ std::set<std::string>& StringFormater::formatString(std::string& json)
     return lines;
 }
 
+//SRP
 std::pair<std::string, std::string> splitString(std::string& to_split, const std::string& delim)
 {
     std::string key = to_split.substr(0, to_split.find(delim));
@@ -131,6 +134,14 @@ std::pair<std::string, std::string> splitString(std::string& to_split, const std
     return par;
 }
 
+//Использовал std_for_each вместо for. Убрал повторное использование кода.
+void eraseElems(std::string& line)
+{
+    std::for_each(symbolsToErase.begin(), symbolsToErase.end(), [&line](const char symbol)
+    {
+     	 line.erase(remove(line.begin(), line.end(), symbol), line.end());
+     });
+ }
 
 -------------------------SECOND EXAMPLE-------------------------
 Language cpp
@@ -362,8 +373,8 @@ public void add(T value) {
 		count++;
 	}
 	
+	
 -------------AFTER REFACTOR:
-
 
 Тут приложена укороченная версия. Полная версия лежит тут: https://github.com/eduAlexandrPirogov/clearing_refactoring_code/blob/main/OrderedListAddMethodRefactor.java
 

@@ -95,4 +95,166 @@ void Json::convert(std::string& value)
 }
 
 
--------------------------------------
+-------------------------SECOND EXAMPLE-------------------------
+Language cpp
+
+-------------BEFORE REFACTOR:
+
+Какие проблемы у данного кода:
+1) Отсутствие SRP
+2) Наличие if-else
+3) Наличие for и вложенных if-else
+4) Использование for с массивом -- возможность выйти за границы
+5) Плохие имена у переменных
+6) Передаются мутабельные значения query, collection в параметрах метода
+7) ЦС метода find равно 7
+
+-------------Code
+void MongoWrapper::find(MongoSelectQuery& query, std::string& collection)
+{
+	MongoWrapper::query_result.clear();
+
+	mongocxx::collection coll = MongoWrapper::db[collection];
+	document doc{};
+
+	auto filters = query.getWhere();
+	short filters_size = filters.size();
+
+	for (short i = 0; i < filters_size; i++)
+	{
+		doc << filters[i]->getFirst() << open_document;
+		double val = MongoWrapper::convert_to_double(filters[i]->getSecond());
+		if (val != -1.0)
+			doc << filters[i]->getWhereOperator() << val;
+		else
+			doc << filters[i]->getWhereOperator() << filters[i]->getSecond();
+		doc << close_document;
+	}
+
+	std::vector<MongoOrderParam*> orders = query.getOrderField();
+	std::vector<MongoOrderParam*>::iterator order_it = orders.begin();
+
+	document doc_test{};
+	for (; order_it != orders.end(); order_it++)
+	{
+		doc_test << (*order_it)->getOrderField() << ((*order_it)->getType());
+	}
+
+
+	std::vector<std::string> project = query.getProjection();
+	std::vector<std::string>::iterator project_it = project.begin();
+	std::vector<std::string>::iterator project_end = project.end();
+
+	document projection{};
+	for (; project_it != project_end; project_it++)
+	{
+		projection << (*project_it) << 1;
+	}
+
+	auto opts = mongocxx::options::find{};
+	opts.sort(doc_test.view());
+	opts.projection(projection.view());
+	mongocxx::cursor cursor = coll.find(doc.view(), opts);
+	for (auto doc : cursor) {
+		std::string t = bsoncxx::to_json(doc);
+		Json* p = new Json{ t };
+		MongoWrapper::query_result.push_back(p);
+	}
+}
+
+
+-------------AFTER REFACTOR
+Что было сделано:
+
+1) Убраны все for циклы и заменены на std::for_each с lambda (СИ ЦС)
+2) Создал отдельные методы для создания каждого типа документа, чтобы придерживаться SRP
+3) Изменил имена переменные по более понятные (Ясный код)
+4) Сделал аргументы функции константными (Ясный код, СИ)
+5) ЦС понизилась с 7 до 1 метода find 
+
+Какие минусы остались и не успел добавить в решение:
+1) слово auto. MongoCxx обильна namespace'ами и ухудшается чтение кода из-за подобного "bsoncxx::builder::basic::kvp" и так далее.
+Можно использовать вместо auto using или typedef, но видел, как с++ программисты и auto использовали, и using. Не буду говорить, что auto -- лучший варинт.
+
+2) Из-за слабой аритектуры, в методе createDocument остался вложенные if else и проверка на значение, которое не константная переменая. Если по спецификации значение
+вдруг станет возможной -1 (идет проверка на конвертацию строки в вещественное), то вся логика поломается. То есть данный метод лучше бы полностью переписать, но
+идей сильных не возникло.
+
+3) Методы createDocument, createProjectionDocument, createSortDocument имеют одну логику -- пройти контейнер и выполнить lambda-выражение.
+Можно было создать один метод createDocument(query, container, lambda), и передавать соответствующий container и lambda, но еще не имел опыта создания метода
+с параметром-лямбдой-функцией.
+
+-------------Code
+void MongoWrapper::find(const MongoSelectQuery& query, const std::string& collection)
+{
+	auto coll = MongoWrapper::db[collection];
+
+	//Creating document query
+	auto query_doc = MongoWrapper::createDocument(query);
+
+	//Setting projection of query
+	auto projection = MongoWrapper::createProjectionDocument(query);
+
+	//Creating mongo options
+	auto sort_options = MongoWrapper::createSortDocument(query);
+	auto opts = createOpts(sort_options);
+	opts.projection(projection.view());
+
+	mongocxx::cursor cursor = coll.find(query_doc.view(), opts);
+	std::for_each(cursor.begin(), cursor.end(), [&](document& doc)->void
+		{
+			std::string t = bsoncxx::to_json(doc);
+			Json* p = new Json{ t };
+			MongoWrapper::query_result.push_back(p);
+		});
+}
+
+
+mongocxx::options::find MongoWrapper::createOpts(document sort_options)
+{
+	auto opts = mongocxx::options::find{};
+	opts.sort(sort_options.view());
+	return opts;
+}
+
+document MongoWrapper::createDocument(MongoSelectQuery& query)
+{
+	document doc{};
+	auto filters = query.getWhere();
+	std::for_each(filters.begin(), filters.end(), [&doc](MongoWherePair* wherePair) -> void
+		{
+			doc << wherePair->getFirst() << open_document;
+			double val = MongoWrapper::convert_to_double(wherePair->getSecond());
+			if (val != -1.0)
+				doc << wherePair->getWhereOperator() << val;
+			else
+				doc << wherePair->getWhereOperator() << wherePair->getSecond();
+			doc << close_document;
+		});
+	return doc;
+}
+
+document MongoWrapper::createSortDocument(MongoSelectQuery& query)
+{
+	document sort_options{};
+	std::vector<MongoOrderParam*> orderParams = query.getOrderField();
+	std::for_each(orderParams.begin(), orderParams.end(), [&sort_options](MongoOrderParam* param)->void
+		{
+			sort_options << param->getOrderField() << (param->getType());
+		});
+	return sort_options;
+}
+
+document MongoWrapper::createProjectionDocument(MongoSelectQuery& query)
+{
+	document projection{};
+	std::vector<std::string> project = query.getProjection();
+	std::for_each(project.begin(), project.end(), [&projection](std::string& val)->void
+		{
+			projection << val << 1;
+		});
+	return projection;
+}
+
+
+-------------------------THIRD EXAMPLE-------------------------

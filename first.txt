@@ -2,15 +2,19 @@ Language cpp
 
 Все методы проверялись через программу SourceMonitor.
 
+-------------------------FIRST EXAMPLE-------------------------
+Language cpp
 
+-------------BEFORE REFACTOR:
 Как проблемы у данного кода:
 1) Отсутствие DRY
 2) Нарушение SRP
 3) Наличие if-else
 4) Наличие for
 5) Неиспользуемые переменные
+6) Сложность 8
 
-Complexety 8
+-------------Code
 void Json::convert(std::string& value)
 {
     size_t end = value.size();
@@ -69,15 +73,15 @@ void Json::convert(std::string& value)
 }
 
 
-//complexety 2
-//statements 7
-Что было сделано для снижения ЦС:
+-------------AFTER REFACTOR
+Что было сделано:
 
 1) Все манипуляции со строками вынесены в отдельный класс StringFormater(Ясный код, обернул примитивный тип в класс)
 Код упрощенного класса StringFormater: 
 2) json_doc до рефактора был обычным полем map<string, string> в классе Json. Также обернул данный тип в класс (Ясный код).
 3) Избавился от if-else с помощью тернарного оператора. (ЦС, избавление от else).
 4) Избавился от for statemnt, использвал стандартную библиотеку (ЦС, избавление от for)/
+5) Сложность снизилась с 8 до 2
 
 void Json::convert(std::string& value)
 {
@@ -258,3 +262,322 @@ document MongoWrapper::createProjectionDocument(MongoSelectQuery& query)
 
 
 -------------------------THIRD EXAMPLE-------------------------
+Language: Java
+-------------BEFORE REFACTOR:
+
+Какие проблемы у данного кода:
+1) Отсутствие SRP
+2) Наличие if-else и вложенных if else
+3) Наличие while и вложенных if-else
+4) Проверка на null
+5) ЦС равно 13
+6) Несколько return
+
+p.s Данный метод реализует добавление елемента в отсортированных список. 
+-------------Code
+
+public void add(T value) {
+		Node<T> nodeToAdd = new Node<T>(value);
+		Node<T> current = this.head;
+		if (this.head == null) {
+			addInTail(nodeToAdd);
+			max = this.head.value;
+			min = this.head.value;
+			count++;
+			return;
+		}
+		if (compare(nodeToAdd.value, min) < 0 || compare(nodeToAdd.value, max) > 0) {
+			if (_ascending) {
+				if (compare(nodeToAdd.value, this.head.value) > 0)
+					addInTail(nodeToAdd);
+				else
+					addInHead(nodeToAdd);
+				min = this.head.value;
+				max = this.tail.value;
+			} else {
+				if (compare(nodeToAdd.value, this.head.value) > 0)
+					addInHead(nodeToAdd);
+				else
+					addInTail(nodeToAdd);
+				min = this.tail.value;
+				max = this.head.value;
+
+			}
+			count++;
+			return;
+		}
+
+		if(!_ascending) {
+			while (current.next != null) {
+				if ((compare(nodeToAdd.value, current.value) < 0 && compare(nodeToAdd.value, current.next.value) > 0)
+						|| (compare(current.value, nodeToAdd.value) == 0))
+					break;
+				current = current.next;
+			}
+		} else {
+			while (current.next != null) {
+				if ((compare(nodeToAdd.value, current.value) > 0 && compare(nodeToAdd.value, current.next.value) < 0)
+						|| (compare(current.value, nodeToAdd.value) == 0))
+					break;
+				current = current.next;
+			}
+		}
+		
+		insertAfter(current, nodeToAdd);
+		count++;
+	}
+	
+-------------AFTER REFACTOR:
+
+
+Тут приложена укороченная версия. Полная версия лежит тут:
+-------------Code
+
+//Создаем классы Node, ValuableNode, EmptyNode, дабы убрать проверку null
+class Node<T> {
+
+	public Node<T> next, prev;
+	public T value;
+	protected String nodeStatus;
+
+	public Node() {
+		value = null;
+		next = null;
+		prev = null;
+	}
+
+	public Node(T _value) {
+		value = _value;
+		next = null;
+		prev = null;
+	}
+
+	public String getStatus() {
+		return nodeStatus;
+	}
+}
+
+class ValueableNode<T> extends Node<T> {
+
+	public ValueableNode(T _value) {
+		super(_value);
+		this.next = null;
+		this.prev = null;
+		// TODO Auto-generated constructor stub
+	}
+
+}
+
+class EmptyNode<T> extends Node<T> {
+
+	public EmptyNode() {
+		super(null);
+		this.next = null;
+		this.prev = null;
+	}
+
+
+
+	public EmptyNode(T _value) {
+		super(_value);
+		// TODO Auto-generated constructor stub
+		this.next = null;
+		this.prev = null;
+	}
+
+}
+
+//Создаем иерарию классов, которая отвечает за способ сортировки 
+//Поскольку, если на понадобится особая сортировка (сравниваем, например, по количеству символов в строке), то 
+//нам нужно лишь указать способ сортировку, а соответствующий экземпляр создаться внутри класса OrderedList
+
+abstract class NodesOrder<T extends Comparable<T>> implements Comparator<T> {
+
+	public Node<T> head, tail;
+	public int count;
+	public T max, min;
+
+	@Override
+	public int compare(T v1, T v2) {
+		/.../
+	}
+
+	public abstract void add(T value);
+
+	public abstract void addInHead(ValueableNode<T> _item);
+
+	public abstract void addInTail(ValueableNode<T> _item);
+
+	public abstract void delete(T val);
+
+	public Node<T> find(T val) {
+		/.../
+	}
+
+	public void insertAfter(ValueableNode<T> _nodeAfter, ValueableNode<T> _nodeToInsert) {
+		/.../
+	}
+
+	public void clear(boolean asc) {
+		/.../
+	}
+
+	public int count() {
+		return count;
+	}
+
+	public abstract ArrayList<Node<T>> getAll();
+
+}
+
+class DescNodesOrder<T extends Comparable<T>> extends NodesOrder<T> {
+
+	DescNodesOrder(int count) {
+		count = 0;
+		head = new EmptyNode<T>();
+		tail = new EmptyNode<T>();
+	}
+
+	public void add(T value) {
+		ValueableNode<T> nodeToAdd = new ValueableNode<T>(value);
+		count++;
+		// Ternary operator would be usefull here
+		if (this.head instanceof EmptyNode) {
+			addFirstHead(nodeToAdd);
+			return;
+		}
+		addAfterHead(nodeToAdd);
+
+	}
+
+	private void addFirstHead(ValueableNode<T> nodeToAdd) {
+		addInTail(nodeToAdd);
+		max = this.head.value;
+		min = this.head.value;
+	}
+
+	private void addAfterHead(ValueableNode<T> nodeToAdd) {
+		Node<T> current = this.head;
+		
+		//ternary operator would be great here
+		if((compare(nodeToAdd.value, min) < 0 || compare(nodeToAdd.value, max) > 0))
+		{
+			if (compare(nodeToAdd.value, this.head.value) > 0)
+				addInHead(nodeToAdd);
+			else
+				addInTail(nodeToAdd);
+		} else {
+			current = recDescSearch(nodeToAdd.value, current, nodeToAdd);
+			insertAfter((ValueableNode) current, nodeToAdd);
+
+		}
+		
+		min = this.head.value;
+		max = this.tail.value;
+	}
+	
+
+	private Node<T> recDescSearch(T value, Node<T> current, Node<T> nodeToAdd) {
+		if (current.next instanceof EmptyNode
+				|| (compare(nodeToAdd.value, current.value) > 0 && compare(nodeToAdd.value, current.next.value) < 0)
+				|| (compare(current.value, nodeToAdd.value) == 0))
+			return current;
+		current = current.next;
+		return recDescSearch(value, current, nodeToAdd);
+
+	}
+
+	@Override
+	public void addInHead(ValueableNode<T> _item) {
+		this.head.prev = _item;
+		_item.next = head;
+		this.head = _item;
+		max = this.head.value;
+	}
+
+	public void addInTail(ValueableNode<T> _item) {
+		if (head instanceof EmptyNode) {
+			this.head = _item;
+			this.head.next = null;
+			this.head.prev = null;
+
+		} else {
+			this.tail.next = _item;
+			_item.prev = tail;
+		}
+		this.tail = _item;
+		min = this.tail.value;
+	}
+
+	public Node<T> find(T val) {
+		/..../
+	}
+
+	public void delete(T val) {
+		/..../
+	}
+
+	public void clear(boolean asc) {
+		/..../
+	}
+
+	public int count() {
+		return count;
+	}
+
+	public ArrayList<Node<T>> getAll() {
+		/..../
+	}
+}
+
+class AscNodesOrder<T extends Comparable<T>> extends NodesOrder<T> {
+
+	AscNodesOrder(int count) {
+		count = 0;
+		head = new EmptyNode<T>();
+		tail = new EmptyNode<T>();
+	}
+
+	public int compare(T v1, T v2) {
+		return (v1.compareTo(v2));
+	}
+
+	// complex 13
+	public void add(T value) {
+		ValueableNode<T> nodeToAdd = new ValueableNode<T>(value);
+		Node<T> current = this.head;
+		/.../
+	}
+	
+	/..../
+
+}
+
+public class OrderedList<T extends Comparable<T>> implements Comparator<T> {
+
+	NodesOrder<T> order;
+
+	public OrderedList(boolean asc) {
+		order = asc ? new AscNodesOrder<T>(0) : new DescNodesOrder<T>(0);
+
+	}
+	
+	boolean getAscenging() {
+		return order instanceof AscNodesOrder;
+	}
+
+	public int compare(T v1, T v2) {
+		return (v1.compareTo(v2));
+	}
+
+	// complex 13
+	public void add(T value) {
+		order.add(value);
+	}
+
+	public void insertAfter(ValueableNode<T> _nodeAfter, ValueableNode<T> _nodeToInsert) {
+		order.insertAfter(_nodeAfter, _nodeToInsert);
+	}
+
+	/..../
+}
